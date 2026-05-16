@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Eid Sheep Chase</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+    <div id="mobileControls">
+      <div id="joystick">
+        <div id="joystickKnob"></div>
+      </div>
+      <div id="rightButtons">
+        <button id="helpBtn">HELP<br><span id="helpCost">5🪙</span></button>
+        <button id="sprintBtn">SPRINT</button>
+      </div>
+    </div>
+  </div>
+  <div id="social-media-links">
+    <p>Developed by Shahad AlTharwa,</p>
+    <a href="https://www.linkedin.com/in/shahadaltharwa" target="_blank">Linkedin</a>
+    <a href="https://github.com/shhahad20" target="_blank">Github</a>
+  </div>
+  <!-- Name-entry overlay (shown before each new game) -->
+  <div id="nameOverlay">
+    <div id="nameDialog">
+      <div id="nameOverlayTitle">ENTER YOUR NAME</div>
+      <input type="text" id="nameInput" maxlength="18" autocomplete="off" spellcheck="false" placeholder="Player" />
+      <div id="nameOverlayHint">Leave blank for default</div>
+      <button id="nameSubmit">&#9654;&#160;&#160;START</button>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
