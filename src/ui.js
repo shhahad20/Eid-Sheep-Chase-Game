@@ -227,32 +227,70 @@ export class UI {
   }
 
   // ---- High Scores ----
-  drawHighScores(ctx, scores) {
-    ctx.fillStyle = COLORS.deepBlue; ctx.fillRect(0, 0, this.w, this.h);
-    ctx.fillStyle = '#0d0d22'; ctx.fillRect(this.w/2-210, 30, 420, this.h-60);
-    ctx.strokeStyle = COLORS.gold; ctx.lineWidth = 3; ctx.strokeRect(this.w/2-210, 30, 420, this.h-60);
-    this._text(ctx, T('highScores'), this.w/2, 72, COLORS.gold, 'bold 22px', 'center');
+  drawHighScores(ctx, entries = [], { loading = false, error = false, lastSubmittedName = '', lastSubmittedScore = -1 } = {}) {
+    const W = this.w, H = this.h;
+    ctx.fillStyle = COLORS.deepBlue; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#0d0d22'; ctx.fillRect(W/2-210, 30, 420, H-60);
+    ctx.strokeStyle = COLORS.gold; ctx.lineWidth = 3; ctx.strokeRect(W/2-210, 30, 420, H-60);
+    this._text(ctx, T('highScores'), W/2, 72, COLORS.gold, 'bold 22px', 'center');
 
-    if (scores.length === 0) {
-      this._text(ctx, T('noScores'), this.w/2, 200, '#888', '15px', 'center');
+    if (loading) {
+      // Animated dots
+      const dots = '.'.repeat(1 + (Math.floor(Date.now() / 400) % 3));
+      this._text(ctx, T('loading') + dots, W/2, H/2 - 24, '#aaaaaa', 'bold 16px', 'center');
+      // Pixel spinner — four rotating squares
+      const cx = W/2, cy = H/2 + 24, t = Date.now() / 600;
+      const arms = [[1,0],[0,1],[-1,0],[0,-1]];
+      arms.forEach(([ax, ay], idx) => {
+        const angle = t + idx * (Math.PI / 2);
+        const rx = cx + Math.cos(angle) * 18;
+        const ry = cy + Math.sin(angle) * 18;
+        ctx.fillStyle = `rgba(212,175,55,${0.3 + idx * 0.18})`;
+        ctx.fillRect(rx - 4, ry - 4, 8, 8);
+      });
+    } else if (entries.length === 0) {
+      this._text(ctx, T('noScores'), W/2, H/2, '#888', '15px', 'center');
     } else {
-      this._text(ctx, `#  ${T('nameCol')}`, this.w/2-170, 100, '#666', '11px');
-      this._text(ctx, T('scoreCol'), this.w/2+170, 100, '#666', '11px', 'right');
+      this._text(ctx, `#  ${T('nameCol')}`, W/2-170, 100, '#666', '11px');
+      this._text(ctx, T('scoreCol'), W/2+170, 100, '#666', '11px', 'right');
 
-      scores.slice(0, 7).forEach((e, i) => {
-        const ey  = 118 + i * 54;
-        const col = i === 0 ? COLORS.gold : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#ffffff';
-        ctx.fillStyle = i === 0 ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.04)';
-        ctx.fillRect(this.w/2-185, ey-18, 370, 50);
+      entries.slice(0, 7).forEach((e, i) => {
+        const ey   = 118 + i * 54;
+        const name = (e.player_name || e.name || 'Player').slice(0, 16);
+        const isMe = lastSubmittedScore >= 0
+          && e.score === lastSubmittedScore
+          && (e.player_name || e.name || '') === lastSubmittedName;
+        const col  = isMe ? '#4dff88'
+          : i === 0 ? COLORS.gold
+          : i === 1 ? '#c0c0c0'
+          : i === 2 ? '#cd7f32'
+          : '#ffffff';
 
-        const nameDisplay = (e.name || 'Player').slice(0, 16);
-        this._text(ctx, `${i+1}.  ${nameDisplay}`, this.w/2-170, ey+4, col, 'bold 14px');
-        this._text(ctx, String(e.score).padStart(6,'0'), this.w/2+170, ey+4, col, 'bold 15px', 'right');
-        this._text(ctx, `${T('lvl')} ${e.level}  •  ${e.coins} ${T('coinsLabel')}`,
-          this.w/2-170, ey+22, '#666', '11px');
+        if (isMe) {
+          ctx.fillStyle = 'rgba(77,255,136,0.10)';
+        } else {
+          ctx.fillStyle = i === 0 ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.04)';
+        }
+        ctx.fillRect(W/2-185, ey-18, 370, 50);
+
+        const prefix = isMe ? '★ ' : `${i+1}.  `;
+        this._text(ctx, prefix + name, W/2-170, ey+4, col, 'bold 14px');
+        this._text(ctx, String(e.score).padStart(6,'0'), W/2+170, ey+4, col, 'bold 15px', 'right');
+
+        let sub = `${T('lvl')} ${e.level}  •  ${e.coins} ${T('coinsLabel')}`;
+        if (e.created_at) {
+          const d = new Date(e.created_at);
+          sub += `  •  ${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+        this._text(ctx, sub, W/2-170, ey+22, isMe ? '#2ecc71' : '#666', '11px');
       });
     }
-    this._btn(ctx, this.w/2-95, this.h-80, 190, 46, T('back'), COLORS.deepBlue, '#0080b3');
+
+    if (error) {
+      this._text(ctx, T('loadErrorLocal'), W/2, H-100, '#e05555', '12px', 'center');
+    }
+
+    this._btn(ctx, W/2-95, H-80, 190, 46, T('back'), COLORS.deepBlue, '#0080b3');
   }
 
   // ---- Credits ----

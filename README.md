@@ -17,7 +17,7 @@ Bilingual: English / Arabic.
 - Power-ups: Rope (slows sheep), Sprint Shoes (speed boost), Magnet (attracts coins)
 - AI Helper companion (summon with H key from Level 2+, costs 5 coins)
 - Minimap, off-screen sheep arrows, screen shake, particle effects
-- High-score leaderboard persisted in localStorage (top 10)
+- Online leaderboard via Supabase (top 10, score DESC) with automatic localStorage fallback
 - Bilingual UI (Arabic / English toggle) with RTL text support
 - Mobile-friendly: virtual joystick + sprint button for touch devices
 
@@ -58,6 +58,65 @@ npx serve EidGame
 
 ---
 
+## Supabase Leaderboard Setup
+
+The game ships with a **graceful fallback**: if Supabase is not configured, scores are stored in `localStorage` only. To enable the online leaderboard, follow these steps.
+
+### 1 — Create the `high_scores` table
+
+Run this SQL in your Supabase project's **SQL Editor**:
+
+```sql
+create table if not exists public.high_scores (
+  id          uuid primary key default gen_random_uuid(),
+  player_name text        not null check (char_length(player_name) <= 20),
+  score       integer     not null default 0,
+  level       integer     not null default 1,
+  coins       integer     not null default 0,
+  created_at  timestamptz not null default now()
+);
+```
+
+### 2 — Enable Row Level Security
+
+```sql
+-- Enable RLS on the table
+alter table public.high_scores enable row level security;
+
+-- Anyone can read the leaderboard
+create policy "public read"
+  on public.high_scores
+  for select
+  using (true);
+
+-- Anyone can submit a score
+create policy "public insert"
+  on public.high_scores
+  for insert
+  with check (true);
+```
+
+### 3 — Add your credentials
+
+Open [src/config.js](src/config.js) and replace the placeholder values with your project's URL and anon key (found in **Project Settings → API** on supabase.com):
+
+```js
+export const SUPABASE_URL      = 'https://your-project-ref.supabase.co';
+export const SUPABASE_ANON_KEY = 'your-anon-key-here';
+```
+
+> **Security note:** The anon key is designed to be public. It is safe to commit and expose in client-side code because all access is gated by the RLS policies above. **Never** use your `service_role` key in the browser.
+
+### How it works
+
+| Condition | Behaviour |
+|-----------|-----------|
+| Supabase configured | Scores submitted to the cloud; top-10 fetched from Supabase |
+| Supabase unavailable / not configured | Scores saved to `localStorage`; leaderboard shows local scores |
+| Fetch fails at runtime | Falls back to local scores; error notice displayed in the leaderboard screen |
+
+---
+
 ## Project Structure
 
 ```
@@ -83,7 +142,10 @@ EidGame/
     ├── helper.js       # AI companion — chases sheep, TTL bar
     ├── ui.js           # All screen drawing: HUD, menus, overlays, minimap
     ├── storage.js      # localStorage read/write for high-score table
-    └── input.js        # Keyboard state, mobile joystick, stuck-key fix
+    ├── input.js        # Keyboard state, mobile joystick, stuck-key fix
+    ├── config.js       # Supabase credentials (replace with your own)
+    ├── supabase.js     # Supabase client singleton (null when unconfigured)
+    └── leaderboard.js  # submitScore + fetchTopScores with localStorage fallback
 ```
 
 ---

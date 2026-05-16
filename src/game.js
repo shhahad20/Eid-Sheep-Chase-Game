@@ -13,6 +13,7 @@ import { Sheep } from './sheep.js';
 import { Helper } from './helper.js';
 import { UI } from './ui.js';
 import { loadScores, saveScore } from './storage.js';
+import { submitScore, fetchTopScores, localScoresToEntries } from './leaderboard.js';
 import { InputHandler } from './input.js';
 
 export class Game {
@@ -49,6 +50,13 @@ export class Game {
     this.mouseY    = 0;
     this.playerName = '';
     this._helpBtn  = null;
+
+    // Leaderboard state (Supabase + localStorage fallback)
+    this.leaderboard        = localScoresToEntries(loadScores());
+    this.leaderboardLoading = false;
+    this.leaderboardError   = false;
+    this.lastSubmittedName  = '';
+    this.lastSubmittedScore = -1;
 
     this.input.onKeyDown(key => this._onKey(key));
     this._helpBtn = this.input.setupMobile();
@@ -173,10 +181,9 @@ export class Game {
         if (this.sheepList.every(sh => sh.caught)) {
           const timeBonus = Math.floor(this.timer) * 8;
           this.score += 200 + timeBonus + this.level * 100;
-          this.scores = saveScore(this.scores, { name: this.playerName || 'Player', score: this.score, coins: this.coins, level: this.level });
           this.camera.shake(14, 0.6);
-          this.state = STATE.VICTORY;
           audio.play('victory');
+          this._finalizeScore(STATE.VICTORY);
         } else {
           audio.play('sheep_caught');
         }
@@ -193,10 +200,9 @@ export class Game {
           if (this.sheepList.every(sh => sh.caught)) {
             const timeBonus = Math.floor(this.timer) * 8;
             this.score += 200 + timeBonus + this.level * 100;
-            this.scores = saveScore(this.scores, { name: this.playerName || 'Player', score: this.score, coins: this.coins, level: this.level });
             this.camera.shake(14, 0.6);
-            this.state = STATE.VICTORY;
             audio.play('victory');
+            this._finalizeScore(STATE.VICTORY);
           } else {
             audio.play('sheep_caught');
           }
@@ -206,9 +212,8 @@ export class Game {
 
     if (this.timer <= 0) {
       this.timer = 0;
-      this.scores = saveScore(this.scores, { name: this.playerName || 'Player', score: this.score, coins: this.coins, level: this.level });
-      this.state = STATE.GAME_OVER;
       audio.play('game_over');
+      this._finalizeScore(STATE.GAME_OVER);
     }
 
     this.camera.follow(this.player.x, this.player.y);
@@ -281,7 +286,15 @@ export class Game {
       return;
     }
     if (this.state === STATE.INSTRUCTIONS) { this.ui.drawInstructions(ctx); return; }
-    if (this.state === STATE.HIGH_SCORES)  { this.ui.drawHighScores(ctx, this.scores); return; }
+    if (this.state === STATE.HIGH_SCORES)  {
+      this.ui.drawHighScores(ctx, this.leaderboard, {
+        loading:            this.leaderboardLoading,
+        error:              this.leaderboardError,
+        lastSubmittedName:  this.lastSubmittedName,
+        lastSubmittedScore: this.lastSubmittedScore,
+      });
+      return;
+    }
     if (this.state === STATE.CREDITS)      { this.ui.drawCredits(ctx, this.mouseX, this.mouseY); return; }
 
     const { ox, oy } = this.camera.offset();
@@ -417,7 +430,7 @@ export class Game {
         }
         if (ui.hits(mx,my, W/2-105,168,210,44)) this._showNameOverlay();
         if (ui.hits(mx,my, W/2-105,220,210,44)) this.state = STATE.INSTRUCTIONS;
-        if (ui.hits(mx,my, W/2-105,272,210,44)) this.state = STATE.HIGH_SCORES;
+        if (ui.hits(mx,my, W/2-105,272,210,44)) { this.state = STATE.HIGH_SCORES; this._fetchLeaderboard(); }
         if (ui.hits(mx,my, W/2-105,324,210,44)) this.state = STATE.CREDITS;
         break;
       case STATE.INSTRUCTIONS:
@@ -497,6 +510,45 @@ export class Game {
     const eligible = this.state === STATE.PLAYING && this.level >= 2 && this.coins >= 5 && this.helpers.length < 2;
     this._helpBtn.disabled = !eligible;
     this._helpBtn.style.display = this.level >= 2 ? '' : 'none';
+  }
+
+  // ============================================================
+  // LEADERBOARD
+  // ============================================================
+
+  _finalizeScore(finalState) {
+    this.lastSubmittedName  = this.playerName || T('nameDefault');
+    this.lastSubmittedScore = this.score;
+    this.scores = saveScore(this.scores, {
+      name:  this.lastSubmittedName,
+      score: this.score,
+      coins: this.coins,
+      level: this.level,
+    });
+    submitScore({
+      player_name: this.lastSubmittedName,
+      score: this.score,
+      level: this.level,
+      coins: this.coins,
+    }).then(r => {
+      if (!r.success) console.warn('[Leaderboard] Submit failed:', r.error);
+    });
+    this.state = finalState;
+  }
+
+  async _fetchLeaderboard() {
+    this.leaderboardLoading = true;
+    this.leaderboardError   = false;
+    try {
+      const { data, error } = await fetchTopScores();
+      this.leaderboard        = data;
+      this.leaderboardError   = !!error;
+    } catch {
+      this.leaderboard        = localScoresToEntries(this.scores);
+      this.leaderboardError   = true;
+    } finally {
+      this.leaderboardLoading = false;
+    }
   }
 
   // ============================================================
