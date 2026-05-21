@@ -36,25 +36,32 @@ Bilingual: English / Arabic.
 
 ## Installation & Running
 
-No build step required. The game runs directly in any modern browser that supports ES Modules.
+The project uses [Vite](https://vitejs.dev/) for local development and production builds.
 
-**Option 1 — VS Code Live Server (recommended)**
-1. Open the `EidGame/` folder in VS Code.
-2. Right-click `index.html` → **Open with Live Server**.
+### Prerequisites
 
-**Option 2 — Python HTTP server**
+- [Node.js](https://nodejs.org/) v18 or later
+
+### Setup
+
 ```bash
-cd EidGame
-python -m http.server 8080
-# then open http://localhost:8080
+# 1. Install dependencies
+npm install
+
+# 2. Copy the env template and fill in your Supabase credentials
+cp .env.example .env.local
+# Edit .env.local with your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+
+# 3. Start the dev server (http://localhost:5173)
+npm run dev
 ```
 
-**Option 3 — Node `serve`**
-```bash
-npx serve EidGame
-```
+### Build for production
 
-> **Note:** ES Modules require a local HTTP server. Opening `index.html` directly as a `file://` URL will not work due to browser CORS restrictions.
+```bash
+npm run build     # outputs to dist/
+npm run preview   # preview the production build locally
+```
 
 ---
 
@@ -98,14 +105,20 @@ create policy "public insert"
 
 ### 3 — Add your credentials
 
-Open [src/config.js](src/config.js) and replace the placeholder values with your project's URL and anon key (found in **Project Settings → API** on supabase.com):
+Create a `.env.local` file in the project root (it is gitignored):
 
-```js
-export const SUPABASE_URL      = 'https://your-project-ref.supabase.co';
-export const SUPABASE_ANON_KEY = 'your-anon-key-here';
+```bash
+cp .env.example .env.local
 ```
 
-> **Security note:** The anon key is designed to be public. It is safe to commit and expose in client-side code because all access is gated by the RLS policies above. **Never** use your `service_role` key in the browser.
+Then fill in your values from **Project Settings → API** on supabase.com:
+
+```
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+```
+
+> **Security note:** The anon key is designed to be public. It is safe to expose in client-side code because all access is gated by the RLS policies above. **Never** use your `service_role` key in the browser.
 
 ### How it works
 
@@ -117,14 +130,30 @@ export const SUPABASE_ANON_KEY = 'your-anon-key-here';
 
 ---
 
+## Deploying to Vercel
+
+1. Push the repository to GitHub.
+2. Import the project on [vercel.com](https://vercel.com) — Vercel auto-detects Vite.
+3. In **Project Settings → Environment Variables**, add:
+   - `VITE_SUPABASE_URL` — your Supabase project URL
+   - `VITE_SUPABASE_ANON_KEY` — your Supabase anon key
+4. Click **Deploy**. Vercel runs `npm run build` and serves the `dist/` folder.
+
+> The leaderboard degrades gracefully: if the env vars are missing, scores fall back to `localStorage`.
+
+---
+
 ## Project Structure
 
 ```
 EidGame/
 ├── index.html          # Game shell — canvas, overlays, mobile controls
 ├── style.css           # Styling for canvas, HUD, mobile controls, overlays
-├── game.js             # Original monolithic source (kept for reference)
-└── src/                # Refactored modular source
+├── package.json        # npm scripts (dev / build / preview)
+├── vite.config.js      # Vite configuration
+├── vercel.json         # Vercel deployment config
+├── .env.example        # Env-var template (copy to .env.local)
+└── src/                # Modular game source
     ├── main.js         # Entry point — boots the Game on window load
     ├── game.js         # Core game loop, state machine, level management
     ├── constants.js    # CONFIG, COLORS, STATE enums
@@ -143,7 +172,7 @@ EidGame/
     ├── ui.js           # All screen drawing: HUD, menus, overlays, minimap
     ├── storage.js      # localStorage read/write for high-score table
     ├── input.js        # Keyboard state, mobile joystick, stuck-key fix
-    ├── config.js       # Supabase credentials (replace with your own)
+    ├── config.js       # Reads Supabase credentials from env vars
     ├── supabase.js     # Supabase client singleton (null when unconfigured)
     └── leaderboard.js  # submitScore + fetchTopScores with localStorage fallback
 ```

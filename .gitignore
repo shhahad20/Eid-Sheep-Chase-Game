@@ -11,13 +11,14 @@ Thumbs.db
 # Logs
 *.log
 
-# Node (if a dev server is ever added)
+# Node
 node_modules/
 npm-debug.log*
 
-# Build output (none currently, but reserved)
+# Build output
 dist/
 build/
 
-src/config.js
-dist/src/config.js
+# Environment variables (keep .env.example committed)
+.env.local
+.env.*.local
